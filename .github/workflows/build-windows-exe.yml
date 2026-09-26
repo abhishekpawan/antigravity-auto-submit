@@ -35,3 +35,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/AutoSubmit.exe
+          generate_release_notes: true
+          body: |
+            **AutoSubmit.exe** — a prebuilt Windows executable, no Python required.
+
+            Download it below and run it directly. See the [README](../../blob/main/README.md) for calibration steps (hover the button, press F8, then start watching).
+
+            ---
