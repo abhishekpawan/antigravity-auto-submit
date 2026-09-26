@@ -5,8 +5,16 @@ Run it, keep the small window visible (it stays on top of everything
 else), then move your mouse over the button you want auto-clicked —
 don't click it — and press F8. It samples the color under your cursor,
 auto-detects the full extent of the button by flood-filling matching
-pixels outward from that point, and saves the result to config.json
-next to this script.
+pixels outward from that point, saves a snapshot image of exactly that
+region, and records both in config.json next to this script.
+
+The saved snapshot is what makes detection reliable: watch.py compares
+the live screen against this exact image later, rather than just
+checking for "something roughly this color" — so an unrelated button
+that happens to share the same color and screen position (e.g. a chat
+"Send" button that turns the same blue as an approval "Submit" button)
+won't falsely trigger a click, since its icon/text/shape won't match
+the calibrated snapshot.
 
 Press Esc at any time to cancel without saving.
 
@@ -25,6 +33,7 @@ import pyautogui
 import common
 
 CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
+TEMPLATE_PATH = Path(__file__).resolve().parent / "button_template.png"
 events: "queue.Queue" = queue.Queue()
 
 
@@ -77,11 +86,17 @@ def main():
                 )
                 root.after(100, poll)
                 return
+            left, top, w, h = region
+            snapshot = common.grab((left, top, left + w, top + h))
+            snapshot.save(TEMPLATE_PATH)
             CONFIG_PATH.write_text(
-                json.dumps({"color": list(color), "region": list(region)}, indent=2)
+                json.dumps(
+                    {"color": list(color), "region": list(region), "template": TEMPLATE_PATH.name},
+                    indent=2,
+                )
             )
-            status.config(text=f"Saved!  color={color}  region={region}", fg="#008000")
-            root.after(2000, root.destroy)
+            status.config(text=f"Saved!  region={region}\nSnapshot written to {TEMPLATE_PATH.name}", fg="#008000")
+            root.after(2500, root.destroy)
         else:
             root.destroy()
 

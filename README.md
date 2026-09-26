@@ -18,8 +18,8 @@ There are already more sophisticated community fixes for this issue — [**AntiG
 
 ## How it works
 
-1. **Calibrate once**: run the tool, hover your mouse over the button (don't click), and press `F8`. It samples the color under your cursor and auto-detects the button's full boundary using a flood fill — no manual coordinate entry.
-2. **Watch**: it polls that small screen region roughly once a second. When the button's color appears there, it clicks the center of it.
+1. **Calibrate once**: run the tool, hover your mouse over the button (don't click), and press `F8`. It samples the color under your cursor, auto-detects the button's full boundary using a flood fill, and saves an actual snapshot image of that exact region — no manual coordinate entry.
+2. **Watch**: it polls that small screen region roughly once a second and compares the live content against the saved snapshot. It only clicks when the region is a close visual match — not just a similar color — which is what lets it tell the real button apart from something else nearby that happens to share its color (see [Limitations](#limitations)).
 
 This works across any monitor arrangement — a single laptop screen, or multiple external monitors, including a monitor positioned to the *left* of your primary display (negative screen coordinates). That case matters more than it sounds: the naive approach (`pyautogui.screenshot()`) silently fails to capture anything on a monitor at negative coordinates on Windows. This tool uses `PIL.ImageGrab(..., all_screens=True)` instead, which handles it correctly. See [Technical notes](#technical-notes).
 
@@ -50,21 +50,22 @@ python main.py
 ## Usage
 
 1. Run the tool (`python main.py` or `AutoSubmit.exe`) and choose **1) Calibrate**.
-2. Hover over the button in your IDE, press `F8`. A small window confirms it was captured, with the detected color and region.
-3. Run the tool again and choose **2) Start watching**.
-4. Leave it running in the background while you work — it clicks the button whenever it appears.
-5. If your IDE window moves, resizes, or the button's theme/color changes, just recalibrate (steps 1–2).
+2. Hover over the button in your IDE, press `F8`. A small window confirms it was captured, with the detected region and a snapshot saved to `button_template.png`.
+3. Choose **2) Start watching** from the menu.
+4. Leave it running in the background while you work — it clicks the button whenever the region visually matches your calibrated snapshot.
+5. If your IDE window moves, resizes, or the button's theme/appearance changes, just recalibrate (steps 1–2) to refresh the snapshot.
 
 ## Technical notes
 
 - **Screen capture** uses `PIL.ImageGrab(bbox=..., all_screens=True)` rather than `pyautogui.screenshot()`. The latter does not reliably capture monitors placed at negative coordinates in a multi-monitor Windows setup — a real bug encountered and root-caused during development of this tool.
-- **Button detection** uses a flood fill from the calibrated point across matching-colored pixels, so the watched region auto-sizes to the actual button rather than requiring a manually specified box — this is what makes calibration work the same way regardless of screen size or layout.
-- **Config** (calibrated color + region) is stored locally in `config.json`, which is git-ignored since it's specific to your own screen setup.
+- **Region sizing** uses a flood fill from the calibrated point across matching-colored pixels, so the watched region auto-sizes to the actual button rather than requiring a manually specified box — this is what makes calibration work the same way regardless of screen size or layout.
+- **Detection** compares the live screen region against the snapshot image taken during calibration (`button_template.png`), using average per-pixel RGB difference as a similarity score (`common.image_similarity`), and only clicks above `SIMILARITY_THRESHOLD` (92% by default, in `watch.py`). This is closer to "does this look like the button I calibrated" than "is this the right color," so a different button that happens to share the color and screen slot — e.g. Antigravity's chat "Send" button, which turns the same blue as the approval "Submit" button once you start typing, in nearly the same spot — scores a clearly lower match and is correctly left unclicked.
+- **Config** (region + path to the snapshot image) is stored locally in `config.json`, alongside `button_template.png`. Both are git-ignored since they're specific to your own screen setup.
 
 ## Limitations
 
-- **Theme-sensitive**: if Antigravity's theme or accent color changes (e.g. switching light/dark mode), you'll need to recalibrate.
-- **Color-collision risk**: if something else in the watched region happens to share the button's color, it could misfire — the flood-fill detection keeps the watched box tight around just the button to minimize this.
+- **Theme-sensitive**: if Antigravity's theme or accent color changes (e.g. switching light/dark mode), the saved snapshot goes stale and you'll need to recalibrate.
+- **Still not infallible**: if two different buttons are genuinely pixel-identical in that exact screen region (same icon, same text, same color, same position), image comparison can't tell them apart either — nothing short of reading the IDE's actual UI state could. In practice this is rare, since most visually distinct actions render at least a different icon or label.
 - **Not affiliated with or endorsed by Google or the Antigravity team** — this is an independent, community workaround for a bug others have also reported publicly.
 
 ## Related reports

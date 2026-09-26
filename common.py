@@ -7,7 +7,7 @@ capture monitors positioned at negative coordinates in a multi-monitor
 Windows setup (confirmed during development of this tool — see README
 "Technical notes"). ImageGrab(all_screens=True) handles this correctly.
 """
-from PIL import ImageGrab
+from PIL import ImageChops, ImageGrab, ImageStat
 
 SAMPLE_RADIUS = 4         # px around the cursor to average when sampling a color
 SEARCH_HALF_SIZE = 250    # how far out (in px) to look for a button's edges from a click point
@@ -22,6 +22,27 @@ def grab(bbox):
 
 def color_close(c1, c2, tol=COLOR_TOLERANCE):
     return all(abs(a - b) <= tol for a, b in zip(c1, c2))
+
+
+def image_similarity(img_a, img_b):
+    """
+    Return a 0.0-1.0 score for how visually alike two same-region screenshots
+    are (1.0 = pixel-identical), by averaging the per-pixel RGB difference.
+
+    This is what actually identifies "the calibrated button, specifically" —
+    rather than just "something the same color" — since two different UI
+    elements that happen to share a color (e.g. an IDE's approval "Submit"
+    button and an unrelated "Send" button that turns the same blue) will
+    still differ in their icon, text, or shape and so score a clearly lower
+    similarity than a real repeat sighting of the same button.
+    """
+    a = img_a.convert("RGB")
+    b = img_b.convert("RGB")
+    if a.size != b.size:
+        b = b.resize(a.size)
+    diff = ImageChops.difference(a, b)
+    mean_diff = sum(ImageStat.Stat(diff).mean) / 3   # average over R, G, B (each 0-255)
+    return 1.0 - (mean_diff / 255.0)
 
 
 def sample_color(x, y, radius=SAMPLE_RADIUS):
