@@ -7,12 +7,27 @@ capture monitors positioned at negative coordinates in a multi-monitor
 Windows setup (confirmed during development of this tool — see README
 "Technical notes"). ImageGrab(all_screens=True) handles this correctly.
 """
+from pathlib import Path
+
 from PIL import ImageChops, ImageGrab, ImageStat
 
 SAMPLE_RADIUS = 4         # px around the cursor to average when sampling a color
 SEARCH_HALF_SIZE = 250    # how far out (in px) to look for a button's edges from a click point
 COLOR_TOLERANCE = 25      # how close an RGB value must be to count as a match
 PADDING = 6               # extra px added around an auto-detected button region
+
+# Where calibration data (config.json + button_template.png) is stored.
+#
+# Deliberately NOT next to the script/exe: when running as a PyInstaller
+# --onefile executable, the running program lives inside a fresh temporary
+# extraction folder that's created on every launch and deleted on exit, so
+# anything saved "next to the script" would vanish the moment the exe is
+# closed and reopened. The user's home directory is stable across runs
+# regardless of whether this is running from source or as a frozen exe.
+CONFIG_DIR = Path.home() / ".antigravity-auto-submit"
+CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+CONFIG_PATH = CONFIG_DIR / "config.json"
+TEMPLATE_PATH = CONFIG_DIR / "button_template.png"
 
 
 def grab(bbox):

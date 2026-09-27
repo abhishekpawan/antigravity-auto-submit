@@ -15,14 +15,12 @@ close visual match — not just a similar color.
 """
 import json
 import time
-from pathlib import Path
 
 import pyautogui
 from PIL import Image
 
 import common
-
-CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
+from common import CONFIG_PATH
 
 # How closely the live region must match the calibrated snapshot to count
 # as "the button is showing" (1.0 = pixel-identical). Lower this a little
@@ -35,19 +33,28 @@ CLICK_COOLDOWN = 4.0       # seconds to wait after a click before checking again
 
 
 def load_config():
+    """
+    Raises FileNotFoundError (never SystemExit) on any missing/invalid
+    calibration data — the caller decides how to handle it, rather than the
+    whole program exiting out from under a menu loop.
+    """
     if not CONFIG_PATH.exists():
-        raise SystemExit("No config.json found yet. Run calibrate.py first.")
+        raise FileNotFoundError(
+            "No calibration found yet. Choose \"1) Calibrate button location\" from the menu first."
+        )
     data = json.loads(CONFIG_PATH.read_text())
     region = tuple(data["region"])
     template_name = data.get("template")
     if not template_name:
-        raise SystemExit(
-            "This config.json is from an older version of the tool (no saved "
-            "button snapshot). Run calibrate.py again to recalibrate."
+        raise FileNotFoundError(
+            "This saved calibration is from an older version of the tool (no button snapshot "
+            "recorded). Please recalibrate — choose \"1) Calibrate button location\"."
         )
     template_path = CONFIG_PATH.parent / template_name
     if not template_path.exists():
-        raise SystemExit(f"Expected snapshot file {template_path} is missing. Run calibrate.py again.")
+        raise FileNotFoundError(
+            f"Expected snapshot file {template_path} is missing. Please recalibrate."
+        )
     return region, Image.open(template_path)
 
 
@@ -58,7 +65,11 @@ def button_is_showing(region, template):
 
 
 def main():
-    region, template = load_config()
+    try:
+        region, template = load_config()
+    except FileNotFoundError as e:
+        print(str(e))
+        return
     left, top, w, h = region
     cx, cy = left + w / 2, top + h / 2
 
